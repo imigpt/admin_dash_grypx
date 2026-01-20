@@ -1,7 +1,8 @@
 import SockJS from 'sockjs-client';
 import { Client, IMessage, StompSubscription } from '@stomp/stompjs';
 
-const WEBSOCKET_URL = 'http://localhost:8081/ws';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://34.131.53.32:8080';
+const WEBSOCKET_URL = `${API_BASE}/ws`;
 
 export class WebSocketService {
   private client: Client | null = null;

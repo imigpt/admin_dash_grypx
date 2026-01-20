@@ -1,9 +1,10 @@
-const API_BASE_URL = 'http://34.131.53.32:8080'; // GCP backend server
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://34.131.53.32:8080'; // GCP backend server
 
 console.log('🔧 API Configuration:', {
   'API_BASE_URL': API_BASE_URL,
   'VITE_API_BASE_URL': import.meta.env.VITE_API_BASE_URL,
-  'Using': API_BASE_URL
+  'Using': API_BASE_URL,
+  'Mode': import.meta.env.MODE
 });
 
 // Helper function for API calls
