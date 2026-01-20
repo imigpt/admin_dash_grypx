@@ -85,7 +85,6 @@ export default function Badges() {
   useEffect(() => {
     fetchBadgeConfig();
     fetchThresholds();
-    fetchAllBadges();
   }, []);
 
   const fetchBadgeConfig = async () => {
@@ -94,11 +93,9 @@ export default function Badges() {
       setConfig(data);
     } catch (error) {
       console.error("Error fetching badge config:", error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch badge configuration",
-        variant: "destructive",
-      });
+      // Don't show error toast - badge feature may not be implemented
+      // Use sample data instead
+      setConfig([]);
     }
   };
 
@@ -110,23 +107,10 @@ export default function Badges() {
       setThresholds(data);
     } catch (error) {
       console.error("Error fetching thresholds:", error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch badge thresholds",
-        variant: "destructive",
-      });
+      // Don't show error toast - badge feature may not be implemented
+      setThresholds([]);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchAllBadges = async () => {
-    try {
-      const data = await api.get<any[]>("/api/v1/badges?includeInactive=true");
-      // store in local state or console for now
-      console.debug('All badges (incl inactive):', data);
-    } catch (error) {
-      console.error('Error fetching all badges:', error);
     }
   };
 

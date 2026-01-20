@@ -138,25 +138,17 @@ export default function Matches() {
   // Function to refresh score for a specific match
   const refreshMatchScore = async (matchId: number) => {
     try {
-      const data = await api.get<any>(`http://34.131.156.94:8080/api/match-scoring/match/${matchId}/score`);
-      if (data) {
-        let scoreA = 0;
-        let scoreB = 0;
+      const data = await api.get<any>(`/api/match/${matchId}/score`);
+      if (data && data.scoreState) {
+        const scoreA = data.scoreState.scoreA ?? 0;
+        const scoreB = data.scoreState.scoreB ?? 0;
         let winner = null;
         
-        if (data.team1SetsWon !== undefined) {
-          scoreA = data.team1SetsWon;
-          scoreB = data.team2SetsWon;
-        } else {
-          scoreA = data.team1Score ?? 0;
-          scoreB = data.team2Score ?? 0;
-        }
-        
-        if (data.status === 'COMPLETED') {
+        if (data.scoreState.matchComplete) {
           if (scoreA > scoreB) {
-            winner = { id: data.team1Id, name: data.team1Name };
+            winner = { name: 'Team A' };
           } else if (scoreB > scoreA) {
-            winner = { id: data.team2Id, name: data.team2Name };
+            winner = { name: 'Team B' };
           }
         }
         
@@ -167,12 +159,8 @@ export default function Matches() {
             score: `${scoreA} - ${scoreB}`,
             scoreA,
             scoreB,
-            team1SetsWon: data.team1SetsWon,
-            team2SetsWon: data.team2SetsWon,
-            team1Score: data.team1Score,
-            team2Score: data.team2Score,
             winner,
-            sport: data.sport,
+            sport: data.scoreState.sportType,
           }
         }));
       }
@@ -304,72 +292,45 @@ export default function Matches() {
     const fetchScores = async () => {
       const scores: Record<number, any> = {};
       
-      // Batch fetch detailed match data in parallel
+      // Batch fetch score data in parallel
       const batchSize = 10;
       for (let i = 0; i < matchesData.length; i += batchSize) {
         const batch = matchesData.slice(i, i + batchSize);
         const scorePromises = batch.map(async (match: any) => {
           const matchId = match.matchId || match.id;
           try {
-            const response = await fetch(`http://34.131.156.94:8080/api/match/${matchId}`);
-            if (response.ok) {
-              const data = await response.json();
+            // Fetch from score endpoint
+            const scoreData = await api.get<any>(`/api/match/${matchId}/score`);
+            
+            let scoreDisplay = '- vs -';
+            let scoreA = 0;
+            let scoreB = 0;
+            let winner = null;
+            
+            if (scoreData && scoreData.scoreState) {
+              scoreA = scoreData.scoreState.scoreA ?? 0;
+              scoreB = scoreData.scoreState.scoreB ?? 0;
+              scoreDisplay = `${scoreA} - ${scoreB}`;
               
-              // Determine score display based on sport category
-              const isRacketSport = ['Tennis', 'Badminton', 'Pickleball'].includes(data.sport);
-              
-              let scoreDisplay = '- vs -';
-              let scoreA = 0;
-              let scoreB = 0;
-              let winner = null;
-              
-              if (data.status === 'COMPLETED' || data.status === 'LIVE') {
-                if (isRacketSport) {
-                  // For racket sports, show sets won
-                  const team1Sets = data.team1SetsWon ?? 0;
-                  const team2Sets = data.team2SetsWon ?? 0;
-                  scoreDisplay = `${team1Sets} - ${team2Sets}`;
-                  scoreA = team1Sets;
-                  scoreB = team2Sets;
-                  
-                  // Determine winner based on sets
-                  if (data.status === 'COMPLETED') {
-                    if (team1Sets > team2Sets) {
-                      winner = { id: data.team1Id, name: data.team1Name };
-                    } else if (team2Sets > team1Sets) {
-                      winner = { id: data.team2Id, name: data.team2Name };
-                    }
-                  }
-                } else {
-                  // For football/other sports, show goals/points
-                  scoreA = data.team1Score ?? 0;
-                  scoreB = data.team2Score ?? 0;
-                  scoreDisplay = `${scoreA} - ${scoreB}`;
-                  
-                  // Determine winner based on score
-                  if (data.status === 'COMPLETED') {
-                    if (scoreA > scoreB) {
-                      winner = { id: data.team1Id, name: data.team1Name };
-                    } else if (scoreB > scoreA) {
-                      winner = { id: data.team2Id, name: data.team2Name };
-                    }
-                  }
+              if (scoreData.scoreState.matchComplete && scoreData.scoreState.winner) {
+                winner = { name: scoreData.scoreState.winner };
+              } else if (scoreData.scoreState.matchComplete) {
+                if (scoreA > scoreB) {
+                  winner = { name: match.team1Name };
+                } else if (scoreB > scoreA) {
+                  winner = { name: match.team2Name };
                 }
               }
-              
-              return {
-                matchId,
-                score: scoreDisplay,
-                scoreA,
-                scoreB,
-                team1SetsWon: data.team1SetsWon,
-                team2SetsWon: data.team2SetsWon,
-                team1Score: data.team1Score,
-                team2Score: data.team2Score,
-                winner,
-                sport: data.sport,
-              };
             }
+            
+            return {
+              matchId,
+              score: scoreDisplay,
+              scoreA,
+              scoreB,
+              winner,
+              sport: scoreData?.scoreState?.sportType || match.sport,
+            };
           } catch (error) {
             console.warn(`Failed to fetch score for match ${matchId}:`, error);
           }
@@ -459,18 +420,19 @@ export default function Matches() {
 
       {/* Matches Table */}
       <div className="rounded-xl border border-border bg-card overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="border-border hover:bg-transparent">
-              <TableHead className="text-muted-foreground">Match</TableHead>
-              <TableHead className="text-muted-foreground">Sport</TableHead>
-              <TableHead className="text-muted-foreground">Teams</TableHead>
-              <TableHead className="text-muted-foreground">Score</TableHead>
-              <TableHead className="text-muted-foreground">Status</TableHead>
-              <TableHead className="text-muted-foreground">Start Time</TableHead>
-              <TableHead className="text-muted-foreground text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-border hover:bg-transparent">
+                <TableHead className="text-muted-foreground whitespace-nowrap">Match</TableHead>
+                <TableHead className="text-muted-foreground whitespace-nowrap hidden sm:table-cell">Sport</TableHead>
+                <TableHead className="text-muted-foreground whitespace-nowrap">Teams</TableHead>
+                <TableHead className="text-muted-foreground whitespace-nowrap">Score</TableHead>
+                <TableHead className="text-muted-foreground whitespace-nowrap">Status</TableHead>
+                <TableHead className="text-muted-foreground whitespace-nowrap hidden md:table-cell">Start Time</TableHead>
+                <TableHead className="text-muted-foreground text-right whitespace-nowrap">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
           <TableBody>
             {filteredMatches.map((match) => (
               <TableRow key={match.id} className="border-border hover:bg-secondary/50">
@@ -480,7 +442,7 @@ export default function Matches() {
                     <p className="text-xs text-muted-foreground">{match.tournament}</p>
                   </div>
                 </TableCell>
-                <TableCell>
+                <TableCell className="hidden sm:table-cell">
                   <Badge variant="outline">{match.sport}</Badge>
                 </TableCell>
                 <TableCell>
@@ -519,7 +481,7 @@ export default function Matches() {
                     {match.status.toUpperCase()}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-muted-foreground">
+                <TableCell className="text-muted-foreground hidden md:table-cell">
                   {match.startTime}
                 </TableCell>
                 <TableCell className="text-right">
@@ -603,33 +565,34 @@ export default function Matches() {
             ))}
           </TableBody>
         </Table>
+        </div>
       </div>
 
       {/* Stats Summary */}
-      <div className="mt-6 flex items-center justify-between rounded-xl border border-border bg-card px-6 py-4">
-        <div className="flex items-center gap-8">
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-card px-4 md:px-6 py-4">
+        <div className="flex flex-wrap items-center gap-4 md:gap-8">
           <div>
-            <p className="text-sm text-muted-foreground">Total Matches</p>
-            <p className="font-display text-2xl text-foreground">{formattedMatches.length}</p>
+            <p className="text-xs md:text-sm text-muted-foreground">Total</p>
+            <p className="font-display text-xl md:text-2xl text-foreground">{formattedMatches.length}</p>
           </div>
-          <div className="h-8 w-px bg-border" />
+          <div className="h-8 w-px bg-border hidden sm:block" />
           <div>
-            <p className="text-sm text-muted-foreground">Live</p>
-            <p className="font-display text-2xl text-destructive">
+            <p className="text-xs md:text-sm text-muted-foreground">Live</p>
+            <p className="font-display text-xl md:text-2xl text-destructive">
               {formattedMatches.filter(m => m.status === "live").length}
             </p>
           </div>
-          <div className="h-8 w-px bg-border" />
+          <div className="h-8 w-px bg-border hidden sm:block" />
           <div>
-            <p className="text-sm text-muted-foreground">Upcoming</p>
-            <p className="font-display text-2xl text-accent">
+            <p className="text-xs md:text-sm text-muted-foreground">Upcoming</p>
+            <p className="font-display text-xl md:text-2xl text-accent">
               {formattedMatches.filter(m => m.status === "upcoming").length}
             </p>
           </div>
-          <div className="h-8 w-px bg-border" />
+          <div className="h-8 w-px bg-border hidden sm:block" />
           <div>
-            <p className="text-sm text-muted-foreground">Completed</p>
-            <p className="font-display text-2xl text-muted-foreground">
+            <p className="text-xs md:text-sm text-muted-foreground">Completed</p>
+            <p className="font-display text-xl md:text-2xl text-muted-foreground">
               {formattedMatches.filter(m => m.status === "completed").length}
             </p>
           </div>

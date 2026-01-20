@@ -16,11 +16,18 @@ import {
   Languages,
   Award,
   MessageSquare,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Button } from "@/components/ui/button";
+import { useIsMobile } from "@/hooks/use-mobile";
+
+interface AppSidebarProps {
+  isOpen?: boolean;
+  onClose?: () => void;
+}
 
 const navItems = [
   { icon: LayoutDashboard, label: "dashboard", path: "/dashboard" },
@@ -40,27 +47,53 @@ const bottomItems = [
   { icon: Settings, label: "Settings", path: "/settings" },
 ];
 
-export function AppSidebar() {
+export function AppSidebar({ isOpen = true, onClose }: AppSidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { logout } = useAuth();
   const { theme, language, toggleTheme, toggleLanguage, t } = useTheme();
+  const isMobile = useIsMobile();
 
   const handleLogout = () => {
     logout();
     navigate('/login');
+    onClose?.();
+  };
+
+  const handleNavClick = () => {
+    if (isMobile) {
+      onClose?.();
+    }
   };
 
   return (
-    <aside className="fixed left-0 top-0 z-40 flex h-screen w-64 flex-col border-r border-sidebar-border bg-sidebar">
+    <aside 
+      className={cn(
+        "fixed left-0 top-0 z-50 flex h-screen w-64 flex-col border-r border-sidebar-border bg-sidebar transition-transform duration-300 ease-in-out",
+        isMobile && !isOpen && "-translate-x-full",
+        isMobile && isOpen && "translate-x-0"
+      )}
+    >
       {/* Logo */}
-      <div className="flex h-16 items-center gap-2 border-b border-sidebar-border px-6">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg gradient-primary">
-          <Zap className="h-5 w-5 text-primary-foreground" />
+      <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-6">
+        <div className="flex items-center gap-2">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg gradient-primary">
+            <Zap className="h-5 w-5 text-primary-foreground" />
+          </div>
+          <span className="font-display text-2xl tracking-wider text-foreground">
+            GRYPX
+          </span>
         </div>
-        <span className="font-display text-2xl tracking-wider text-foreground">
-          GRYPX
-        </span>
+        {isMobile && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onClose}
+            className="h-8 w-8"
+          >
+            <X className="h-5 w-5" />
+          </Button>
+        )}
       </div>
 
       {/* Navigation */}
@@ -71,6 +104,7 @@ export function AppSidebar() {
             <Link
               key={item.path}
               to={item.path}
+              onClick={handleNavClick}
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
                 isActive
@@ -126,6 +160,7 @@ export function AppSidebar() {
             <Link
               key={item.path}
               to={item.path}
+              onClick={handleNavClick}
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
                 isActive

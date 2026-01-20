@@ -78,9 +78,11 @@ export const dashboardService = {
       // Count matches by status
       const liveMatches = matches.filter(m => m.status === 'LIVE').length;
       const upcomingMatches = matches.filter(m => m.status === 'scheduled' || m.status === 'UPCOMING').length;
-      const completedMatches = matches.filter(m => m.status === 'COMPLETED').length;
+      const completedMatches = matches.filter(m => m.status === 'COMPLETED' || m.status === 'completed').length;
       const totalMatches = matches.length;
-      const activeTournaments = tournaments.filter(t => t.status === 'ACTIVE' || t.status === 'IN_PROGRESS').length;
+      const activeTournaments = tournaments.filter(t => 
+        t.status === 'ACTIVE' || t.status === 'IN_PROGRESS' || t.status === 'ONGOING'
+      ).length;
 
       // Try to get users count, fallback to 0 if endpoint doesn't exist
       let totalPlayers = 0;
@@ -113,11 +115,49 @@ export const dashboardService = {
     }
   },
 
-  // Get all live matches
+  // Helper to fetch scores for matches
+  async enrichMatchesWithScores(matches: any[]): Promise<MatchSummary[]> {
+    const enrichedMatches = await Promise.all(
+      matches.map(async (match) => {
+        const matchId = match.matchId || match.id;
+        try {
+          const scoreData = await api.get<any>(`/api/match/${matchId}/score`);
+          if (scoreData && scoreData.scoreState) {
+            return {
+              ...match,
+              matchId,
+              scoreA: scoreData.scoreState.scoreA ?? 0,
+              scoreB: scoreData.scoreState.scoreB ?? 0,
+              team1Score: scoreData.scoreState.scoreA ?? 0,
+              team2Score: scoreData.scoreState.scoreB ?? 0,
+              scoreTeam1: scoreData.scoreState.scoreA ?? 0,
+              scoreTeam2: scoreData.scoreState.scoreB ?? 0,
+              sportType: scoreData.scoreState.sportType || match.sport,
+            };
+          }
+        } catch (e) {
+          console.warn(`Failed to fetch score for match ${matchId}`);
+        }
+        return {
+          ...match,
+          matchId,
+          scoreA: 0,
+          scoreB: 0,
+          team1Score: 0,
+          team2Score: 0,
+        };
+      })
+    );
+    return enrichedMatches;
+  },
+
+  // Get all live matches with scores
   async getLiveMatches(): Promise<MatchSummary[]> {
     try {
       const matches = await api.get<any[]>('/api/match');
-      return matches.filter(m => m.status === 'LIVE');
+      const liveMatches = matches.filter(m => m.status === 'LIVE');
+      // Fetch scores for live matches
+      return this.enrichMatchesWithScores(liveMatches);
     } catch (error) {
       console.error('Failed to fetch live matches:', error);
       return [];
@@ -128,18 +168,25 @@ export const dashboardService = {
   async getUpcomingMatches(): Promise<MatchSummary[]> {
     try {
       const matches = await api.get<any[]>('/api/match');
-      return matches.filter(m => m.status === 'scheduled' || m.status === 'UPCOMING');
+      return matches.filter(m => m.status === 'scheduled' || m.status === 'UPCOMING').map(m => ({
+        ...m,
+        matchId: m.matchId || m.id,
+        scoreA: 0,
+        scoreB: 0,
+      }));
     } catch (error) {
       console.error('Failed to fetch upcoming matches:', error);
       return [];
     }
   },
 
-  // Get all completed matches
+  // Get all completed matches with scores
   async getCompletedMatches(): Promise<MatchSummary[]> {
     try {
       const matches = await api.get<any[]>('/api/match');
-      return matches.filter(m => m.status === 'COMPLETED');
+      const completedMatches = matches.filter(m => m.status === 'COMPLETED');
+      // Fetch scores for completed matches
+      return this.enrichMatchesWithScores(completedMatches);
     } catch (error) {
       console.error('Failed to fetch completed matches:', error);
       return [];

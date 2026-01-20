@@ -34,15 +34,15 @@ export function StatCard({
   };
 
   return (
-    <div className="group relative overflow-hidden rounded-xl border border-border bg-card p-6 transition-all duration-300 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5">
+    <div className="group relative overflow-hidden rounded-xl border border-border bg-card p-4 md:p-6 transition-all duration-300 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5">
       {/* Gradient overlay */}
       <div className="absolute inset-0 gradient-hero opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
 
       <div className="relative flex items-start justify-between">
-        <div>
-          <p className="text-sm font-medium text-muted-foreground">{title}</p>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="font-display text-4xl tracking-wide text-foreground">
+        <div className="min-w-0 flex-1">
+          <p className="text-xs md:text-sm font-medium text-muted-foreground truncate">{title}</p>
+          <div className="mt-1 md:mt-2 flex items-baseline gap-2 flex-wrap">
+            <span className="font-display text-2xl md:text-4xl tracking-wide text-foreground">
               {value}
             </span>
             {live && (
@@ -53,7 +53,7 @@ export function StatCard({
             )}
           </div>
           {change && (
-            <p className={cn("mt-2 text-sm", changeColorClasses[changeType])}>
+            <p className={cn("mt-1 md:mt-2 text-xs md:text-sm truncate", changeColorClasses[changeType])}>
               {change}
             </p>
           )}
@@ -61,11 +61,11 @@ export function StatCard({
 
         <div
           className={cn(
-            "flex h-12 w-12 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-110",
+            "flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-110 shrink-0 ml-2",
             iconColorClasses[iconColor]
           )}
         >
-          <Icon className="h-6 w-6" />
+          <Icon className="h-5 w-5 md:h-6 md:w-6" />
         </div>
       </div>
     </div>

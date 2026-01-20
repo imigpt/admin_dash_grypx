@@ -209,55 +209,69 @@ export default function Players() {
     if (!usersData || usersData.length === 0) return;
     
     const fetchAllStats = async () => {
-      const sportId = getSportIdByName(selectedSport);
-      console.log(`Fetching stats for sport: ${selectedSport} (ID: ${sportId})`);
+      console.log(`[Players] Fetching player stats from all sports...`);
       
-      const statsPromises = usersData.map(async (user: any) => {
-        try {
-          // Use the calculate endpoint which computes stats on-the-fly from PlayerMatchStats
-          // This ensures we get real-time data even if aggregated stats aren't updated
-          const response = await api.get(`/api/stats/player/${user.id}/sport/${sportId}/calculate`) as any;
-          console.log(`Stats for player ${user.id} (${user.name || user.username}):`, response);
-          
-          // Returns PlayerStatsDTO with: matchesPlayed, matchesWon, matchesLost, matchesDrawn, winRate, totalGoals, totalAssists, totalPoints
-          if (response) {
-            return { 
-              userId: user.id, 
-              stats: {
-                matchesPlayed: response.matchesPlayed || 0,
-                matchesWon: response.matchesWon || 0,
-                matchesLost: response.matchesLost || 0,
-                matchesDrawn: response.matchesDrawn || 0,
-                winRate: response.winRate || 0,
-                totalPoints: response.totalPoints || 0,
-                goals: response.totalGoals || 0,
-                assists: response.totalAssists || 0,
+      try {
+        // Fetch leaderboard for ALL sports and aggregate
+        const sportIds = [1, 2, 3, 4]; // Tennis, Badminton, Football, Pickleball
+        const statsMap: { [key: string]: PlayerStats } = {};
+        
+        for (const sportId of sportIds) {
+          try {
+            const leaderboard = await api.get<any[]>(`/api/stats/player/leaderboard/${sportId}`);
+            console.log(`[Players] Sport ${sportId} leaderboard:`, leaderboard?.length || 0, 'players');
+            
+            (leaderboard || []).forEach((player: any) => {
+              const playerId = String(player.playerId);
+              
+              if (!statsMap[playerId]) {
+                statsMap[playerId] = {
+                  matchesPlayed: 0,
+                  matchesWon: 0,
+                  matchesLost: 0,
+                  matchesDrawn: 0,
+                  winRate: 0,
+                  totalPoints: 0,
+                  goals: 0,
+                  assists: 0,
+                };
               }
-            };
+              
+              // Aggregate stats across all sports
+              statsMap[playerId].matchesPlayed! += player.matchesPlayed || 0;
+              statsMap[playerId].matchesWon! += player.matchesWon || 0;
+              statsMap[playerId].matchesLost! += player.matchesLost || 0;
+              statsMap[playerId].matchesDrawn! += player.matchesDrawn || 0;
+              statsMap[playerId].totalPoints! += player.totalPoints || 0;
+              statsMap[playerId].goals! += player.totalGoals || 0;
+              statsMap[playerId].assists! += player.totalAssists || 0;
+            });
+          } catch (e) {
+            console.warn(`[Players] Failed to fetch leaderboard for sport ${sportId}`);
           }
-          
-          return { userId: user.id, stats: null };
-        } catch (error) {
-          console.error(`Failed to fetch stats for player ${user.id}:`, error);
-          return { userId: user.id, stats: null };
         }
-      });
+        
+        // Calculate overall win rate
+        Object.keys(statsMap).forEach((playerId) => {
+          const s = statsMap[playerId];
+          if (s.matchesPlayed && s.matchesPlayed > 0) {
+            s.winRate = Math.round((s.matchesWon! / s.matchesPlayed) * 100);
+          }
+        });
+        
+        console.log('[Players] Final aggregated statsMap:', statsMap);
+        setPlayerStats(statsMap);
+      } catch (error) {
+        console.error('Failed to fetch leaderboard:', error);
+      }
       
-      const results = await Promise.all(statsPromises);
-      const statsMap: { [key: string]: PlayerStats } = {};
-      results.forEach(result => {
-        if (result.stats) {
-          statsMap[result.userId] = result.stats;
-        }
-      });
-      // Fetch badges for each player in parallel
+      // Fetch badges for each player
       try {
         const badgePromises = usersData.map(async (user: any) => {
           try {
             const resp = await api.get(`/api/v1/badges/player/${user.id}`) as any;
             return { userId: user.id, badges: Array.isArray(resp) ? resp : [] };
           } catch (e) {
-            console.warn(`Failed to fetch badges for player ${user.id}`, e);
             return { userId: user.id, badges: [] };
           }
         });
@@ -271,18 +285,22 @@ export default function Players() {
       } catch (e) {
         console.error('Failed to fetch player badges', e);
       }
-      console.log('All player stats:', statsMap);
-      setPlayerStats(statsMap);
     };
     
     fetchAllStats();
-  }, [usersData, selectedSport]);
+  }, [usersData]); // Removed selectedSport - now fetching all sports
   
   const mappedPlayers = useMemo(() => {
     if (!usersData) return [];
     
+    console.log('[Players] Mapping players with stats. Total users:', usersData.length);
+    console.log('[Players] Available stats keys:', Object.keys(playerStats));
+    
     return usersData.map((user: any) => {
-      const stats = playerStats[user.id];
+      // Use string key for consistent lookup
+      const userId = String(user.id);
+      const stats = playerStats[userId];
+      console.log(`[Players] User ${userId} (${user.name}):`, stats ? `${stats.matchesPlayed} matches` : 'NO STATS');
     const badges = playerBadges[user.id] || [];
       
       // Calculate win rate as percentage if winRate is a decimal (0-1) or use as-is if already percentage
@@ -369,7 +387,7 @@ export default function Players() {
       </div>
 
       {/* Players Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         {players.map((player: any) => (
           <div
             key={player.id}

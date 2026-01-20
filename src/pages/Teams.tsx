@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useTeams, useDeleteTeam } from "@/hooks/use-admin-api";
+import { api } from "@/lib/api";
 import {
   Dialog,
   DialogContent,
@@ -50,31 +51,59 @@ export default function Teams() {
   const updateTeam = useUpdateTeam();
   const deleteTeam = useDeleteTeam();
 
-  // Fetch team stats including wins/losses
+  // Fetch team stats including wins/losses - try all sports to get aggregate stats
   useEffect(() => {
     const fetchTeamStats = async () => {
       if (!teams || teams.length === 0) return;
       
+      console.log('[Teams] Starting to fetch team stats. Total teams:', teams.length);
       const stats: Record<string, any> = {};
+      const sportIds = [1, 2, 3, 4]; // Tennis, Badminton, Football, Pickleball
       
       for (const team of teams) {
-        const teamId = team.teamId || team.id;
-        // Get sport ID - try from team object or use sport name to ID mapping
-        const sportId = team.sportId || getSportIdByName(team.sport);
+        // Type cast to access backend fields
+        const teamData = team as any;
+        const teamId = teamData.teamId || teamData.id || team.id;
         
-        if (teamId && sportId) {
+        // Try to get stats from all sports and aggregate them
+        let aggregatedStats = {
+          matchesPlayed: 0,
+          matchesWon: 0,
+          matchesLost: 0,
+          matchesDrawn: 0,
+          goalsFor: 0,
+          goalsAgainst: 0,
+          points: 0,
+          winRate: 0,
+        };
+        
+        for (const sportId of sportIds) {
           try {
-            const response = await fetch(`http://34.131.156.94:8080/api/stats/team/${teamId}/sport/${sportId}`);
-            if (response.ok) {
-              const data = await response.json();
-              stats[`${teamId}-${sportId}`] = data;
+            const data = await api.get<any>(`/api/stats/team/${teamId}/sport/${sportId}`);
+            if (data && data.matchesPlayed > 0) {
+              aggregatedStats.matchesPlayed += data.matchesPlayed || 0;
+              aggregatedStats.matchesWon += data.matchesWon || 0;
+              aggregatedStats.matchesLost += data.matchesLost || 0;
+              aggregatedStats.matchesDrawn += data.matchesDrawn || 0;
+              aggregatedStats.goalsFor += data.goalsFor || 0;
+              aggregatedStats.goalsAgainst += data.goalsAgainst || 0;
+              aggregatedStats.points += data.points || 0;
             }
           } catch (error) {
-            console.warn(`Failed to fetch stats for team ${teamId}:`, error);
+            // Silently skip if no stats for this sport
           }
         }
+        
+        // Calculate overall win rate
+        if (aggregatedStats.matchesPlayed > 0) {
+          aggregatedStats.winRate = Math.round((aggregatedStats.matchesWon / aggregatedStats.matchesPlayed) * 100);
+        }
+        
+        console.log(`[Teams] Aggregated stats for team ${teamId}:`, aggregatedStats);
+        stats[String(teamId)] = aggregatedStats;
       }
       
+      console.log('[Teams] Final stats map:', stats);
       setTeamStats(stats);
     };
     
@@ -94,22 +123,32 @@ export default function Teams() {
 
   // Map backend team structure to frontend format with stats
   const mappedTeams = teams?.map((team: any) => {
-    const teamId = team.teamId || team.id;
-    const sportId = team.sportId || getSportIdByName(team.sport);
-    const stats = teamStats[`${teamId}-${sportId}`] || {};
+    const teamData = team as any;
+    const teamId = teamData.teamId || teamData.id || team.id;
+    const sportName = teamData.sport || teamData.sportName;
+    const sportId = teamData.sportId || team.sportId || getSportIdByName(sportName);
+    // Use simple teamId lookup instead of composite key
+    const stats = teamStats[String(teamId)] || {};
+    
+    console.log(`[Teams] Mapping team ${teamId} (${teamData.teamName || team.name}):`, { 
+      hasStats: !!stats, 
+      statsKeys: Object.keys(stats),
+      matchesWon: stats.matchesWon,
+      matchesPlayed: stats.matchesPlayed 
+    });
     
     return {
       id: teamId,
-      name: team.teamName || team.name,
+      name: teamData.teamName || team.name,
       sportId: sportId,
-      sportName: team.sport || team.sportName,
-      logoUrl: team.teamImage || team.logoUrl,
-      memberCount: team.playerCount || team.members?.length || 0,
-      members: team.members || [],
-      createdAt: team.createdAt,
-      createdBy: team.createdByUsername,
-      description: team.description,
-      location: team.location,
+      sportName: sportName || team.sportName,
+      logoUrl: teamData.teamImage || team.logoUrl,
+      memberCount: teamData.playerCount || teamData.members?.length || 0,
+      members: teamData.members || [],
+      createdAt: teamData.createdAt,
+      createdBy: teamData.createdByUsername,
+      description: teamData.description,
+      location: teamData.location,
       // Add stats from API
       matchesWon: stats.matchesWon || 0,
       matchesLost: stats.matchesLost || 0,
@@ -256,7 +295,7 @@ export default function Teams() {
       )}
 
       {/* Teams Grid */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 md:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         {filteredTeams.map((team) => {
           const sport = sports?.find(s => s.id === team.sportId);
           const color = getSportColor(team.sportId);

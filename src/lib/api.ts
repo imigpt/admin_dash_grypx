@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://34.131.156.94:8080'; // Hardcoded to fix connection issues
+const API_BASE_URL = 'http://34.131.53.32:8080'; // GCP backend server
 
 console.log('🔧 API Configuration:', {
   'API_BASE_URL': API_BASE_URL,

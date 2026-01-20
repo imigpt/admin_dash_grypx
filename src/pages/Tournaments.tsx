@@ -194,23 +194,23 @@ export default function Tournaments() {
   return (
     <DashboardLayout title="TOURNAMENTS" subtitle="Manage tournaments and leagues">
       {/* Header Actions */}
-      <div className="mb-6 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Badge variant="default" className="px-3 py-1">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+          <Badge variant="default" className="px-2 sm:px-3 py-1 text-xs sm:text-sm">
             {tournaments.filter((t: any) => t.status === "active").length} Active
           </Badge>
-          <Badge variant="upcoming" className="px-3 py-1">
+          <Badge variant="upcoming" className="px-2 sm:px-3 py-1 text-xs sm:text-sm">
             {tournaments.filter((t: any) => t.status === "upcoming").length} Upcoming
           </Badge>
         </div>
-        <Button onClick={() => setIsCreateDialogOpen(true)}>
+        <Button onClick={() => setIsCreateDialogOpen(true)} className="w-full sm:w-auto">
           <Plus className="mr-2 h-4 w-4" />
           Create Tournament
         </Button>
       </div>
 
       {/* Tournament Cards */}
-      <div className="mb-8 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-8 grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         {tournaments.map((tournament: any) => (
           <div
             key={tournament.id}

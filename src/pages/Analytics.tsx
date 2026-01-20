@@ -73,23 +73,11 @@ export default function Analytics() {
 
   // Fetch tournaments
   useEffect(() => {
-    api.get<any>("/api/tournament/grouped")
-      .then((r) => {
-        // Normalize response - combine all tournament arrays
-        let data: Tournament[] = [];
-        if (Array.isArray(r)) {
-          data = r;
-        } else if (r) {
-          // Combine participatingTournaments, myTournaments, and otherTournaments
-          const participating = r.participatingTournaments || [];
-          const my = r.myTournaments || [];
-          const other = r.otherTournaments || [];
-          data = [...participating, ...my, ...other];
-        }
-        
-        console.log("Tournaments loaded:", data.length);
-        setTournaments(data);
-        if (data.length > 0 && selectedTournament === null) {
+    api.get<any[]>("/api/tournament")
+      .then((data) => {
+        console.log("Tournaments loaded:", data?.length || 0);
+        setTournaments(data || []);
+        if (data && data.length > 0 && !selectedTournament) {
           setSelectedTournament(data[0].id);
         }
         setLoading(false);
@@ -99,7 +87,7 @@ export default function Analytics() {
         setTournaments([]);
         setLoading(false);
       });
-  }, [selectedTournament]);
+  }, []); // Only run once on mount
 
   // Fetch matches and standings for selected tournament
   useEffect(() => {
@@ -107,11 +95,60 @@ export default function Analytics() {
 
     console.log("Fetching data for tournament:", selectedTournament);
 
-    // Fetch grouped matches
-    api.get<GroupedMatches>(`/api/tournament/${selectedTournament}/matches/grouped`)
-      .then((data) => {
-        console.log("Matches grouped data:", data);
-        setMatchesGrouped(data);
+    // Fetch matches and group them client-side
+    api.get<any[]>(`/api/tournament/${selectedTournament}/matches`)
+      .then(async (matches) => {
+        console.log("Matches data:", matches);
+        const matchList = Array.isArray(matches) ? matches : [];
+        
+        // Enrich matches with scores from /api/match/{id}/score and normalize team names
+        const enrichedMatches = await Promise.all(
+          matchList.map(async (match) => {
+            const matchId = match.matchId || match.id;
+            // Normalize team names from nested objects
+            const team1Name = match.team1Name || match.team1?.teamName || 'Team 1';
+            const team2Name = match.team2Name || match.team2?.teamName || 'Team 2';
+            let team1Score = match.team1Score ?? 0;
+            let team2Score = match.team2Score ?? 0;
+            
+            try {
+              const scoreData = await api.get<any>(`/api/match/${matchId}/score`);
+              if (scoreData && scoreData.scoreState) {
+                team1Score = scoreData.scoreState.scoreA ?? team1Score;
+                team2Score = scoreData.scoreState.scoreB ?? team2Score;
+              }
+            } catch (e) {
+              // Score not available, use existing scores
+            }
+            return {
+              ...match,
+              matchId,
+              team1Name,
+              team2Name,
+              team1Score,
+              team2Score,
+            };
+          })
+        );
+        
+        // Group matches by status
+        const completedMatches = enrichedMatches.filter(
+          (m) => (m.status?.toUpperCase() === 'COMPLETED') || (m as any).matchComplete === true
+        );
+        const liveMatches = enrichedMatches.filter(
+          (m) => m.status?.toUpperCase() === 'LIVE' || m.status?.toUpperCase() === 'IN_PROGRESS'
+        );
+        const upcomingMatches = enrichedMatches.filter(
+          (m) => m.status?.toUpperCase() === 'SCHEDULED' || m.status?.toUpperCase() === 'UPCOMING' || m.status?.toUpperCase() === 'PENDING'
+        );
+        
+        setMatchesGrouped({
+          completedMatches,
+          liveMatches,
+          upcomingMatches,
+          completedCount: completedMatches.length,
+          totalMatches: enrichedMatches.length,
+        });
       })
       .catch((e) => {
         console.error("Error fetching matches:", e);
@@ -119,10 +156,25 @@ export default function Analytics() {
       });
 
     // Fetch standings
-    api.get<Standing[]>(`/api/tournament/${selectedTournament}/standings`)
+    api.get<any[]>(`/api/tournament/${selectedTournament}/standings`)
       .then((data) => {
         console.log("Standings data:", data);
-        setStandings(Array.isArray(data) ? data : []);
+        // Normalize standings data from API
+        const normalizedStandings: Standing[] = (Array.isArray(data) ? data : []).map((s, index) => ({
+          position: index + 1,
+          teamId: s.team?.id || s.teamId || index,
+          teamName: s.team?.teamName || s.teamName || 'Unknown',
+          played: s.matchesPlayed ?? s.played ?? 0,
+          won: s.wins ?? s.won ?? 0,
+          drawn: s.draws ?? s.drawn ?? 0,
+          lost: s.losses ?? s.lost ?? 0,
+          goalsFor: s.goalsFor ?? 0,
+          goalsAgainst: s.goalsAgainst ?? 0,
+          goalDifference: s.goalDifference ?? 0,
+          points: s.points ?? 0,
+          recentForm: s.recentForm || [],
+        }));
+        setStandings(normalizedStandings);
       })
       .catch((e) => {
         console.error("Error fetching standings:", e);
@@ -322,7 +374,7 @@ export default function Analytics() {
   return (
     <DashboardLayout title="ANALYTICS" subtitle="Performance insights and statistics">
       {/* Tournament Selector */}
-      {tournaments.length > 0 && (
+      {tournaments.length > 0 ? (
         <div className="mb-6">
           <label className="text-sm text-muted-foreground mr-3">Select Tournament:</label>
           <select
@@ -337,29 +389,33 @@ export default function Analytics() {
             ))}
           </select>
         </div>
+      ) : (
+        <div className="mb-6 p-4 rounded-lg border border-border bg-card">
+          <p className="text-muted-foreground">No tournaments found. Create a tournament to see analytics.</p>
+        </div>
       )}
 
       {/* Quick Stats */}
-      <div className="mb-8 grid gap-4 md:grid-cols-4">
-        <div className="rounded-xl border border-border bg-card p-6">
-          <p className="text-sm text-muted-foreground">Total Goals</p>
-          <p className="font-display text-4xl text-primary">{totalGoals}</p>
-          <p className="mt-1 text-xs text-success">{completedMatches} completed matches</p>
+      <div className="mb-6 md:mb-8 grid gap-3 md:gap-4 grid-cols-2 md:grid-cols-4">
+        <div className="rounded-xl border border-border bg-card p-4 md:p-6">
+          <p className="text-xs md:text-sm text-muted-foreground">Total Goals</p>
+          <p className="font-display text-2xl md:text-4xl text-primary">{totalGoals}</p>
+          <p className="mt-1 text-xs text-success">{completedMatches} completed</p>
         </div>
-        <div className="rounded-xl border border-border bg-card p-6">
-          <p className="text-sm text-muted-foreground">Avg Goals/Match</p>
-          <p className="font-display text-4xl text-accent">{avgGoalsPerMatch}</p>
-          <p className="mt-1 text-xs text-muted-foreground">From completed matches</p>
+        <div className="rounded-xl border border-border bg-card p-4 md:p-6">
+          <p className="text-xs md:text-sm text-muted-foreground">Avg Goals/Match</p>
+          <p className="font-display text-2xl md:text-4xl text-accent">{avgGoalsPerMatch}</p>
+          <p className="mt-1 text-xs text-muted-foreground hidden sm:block">From completed matches</p>
         </div>
-        <div className="rounded-xl border border-border bg-card p-6">
-          <p className="text-sm text-muted-foreground">Total Teams</p>
-          <p className="font-display text-4xl text-warning">{standings.length}</p>
-          <p className="mt-1 text-xs text-muted-foreground">In standings</p>
+        <div className="rounded-xl border border-border bg-card p-4 md:p-6">
+          <p className="text-xs md:text-sm text-muted-foreground">Total Teams</p>
+          <p className="font-display text-2xl md:text-4xl text-warning">{standings.length}</p>
+          <p className="mt-1 text-xs text-muted-foreground hidden sm:block">In standings</p>
         </div>
-        <div className="rounded-xl border border-border bg-card p-6">
-          <p className="text-sm text-muted-foreground">Total Matches</p>
-          <p className="font-display text-4xl text-success">{matchesGrouped?.totalMatches || 0}</p>
-          <p className="mt-1 text-xs text-muted-foreground">Live + Completed + Upcoming</p>
+        <div className="rounded-xl border border-border bg-card p-4 md:p-6">
+          <p className="text-xs md:text-sm text-muted-foreground">Total Matches</p>
+          <p className="font-display text-2xl md:text-4xl text-success">{matchesGrouped?.totalMatches || 0}</p>
+          <p className="mt-1 text-xs text-muted-foreground hidden sm:block">All matches</p>
         </div>
       </div>
 

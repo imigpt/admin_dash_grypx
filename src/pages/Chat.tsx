@@ -8,9 +8,10 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MessageCircle, Users, Search, Circle, Clock, Trash2 } from "lucide-react";
+import { MessageCircle, Users, Search, Circle, Clock, Trash2, Send } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { api } from "@/lib/api";
 
 interface ChatMessage {
   id: number;
@@ -46,51 +47,26 @@ interface Conversation {
 
 type ConversationsMap = { [key: string]: Conversation };
 
-const BASE_URL = "http://34.131.156.94:8080/api/chat";
-const WS_URL = "ws://34.131.156.94:8080/ws";
-const ADMIN_USER_ID = 11; // Admin user ID (Administrator @GRYPX#011)
+interface ApiUser {
+  id: number;
+  name: string;
+  username: string;
+  mobileNumber: string;
+  profileImage: string | null;
+}
 
-// Sample data for demonstration when no real chats exist
-const sampleUsers: ChatUser[] = [
-  { userId: 1, name: "John Smith", username: "john_smith", profileImage: null, isOnline: true, lastMessage: "Hey, when is the next match?", lastMessageTime: "2025-01-15T10:30:00", unreadCount: 2 },
-  { userId: 2, name: "Sarah Johnson", username: "sarah_j", profileImage: null, isOnline: true, lastMessage: "Thanks for the update!", lastMessageTime: "2025-01-15T09:15:00", unreadCount: 0 },
-  { userId: 3, name: "Mike Wilson", username: "mike_w", profileImage: null, isOnline: false, lastMessage: "Can you check my score?", lastMessageTime: "2025-01-14T16:45:00", unreadCount: 1 },
-  { userId: 4, name: "Emma Davis", username: "emma_d", profileImage: null, isOnline: false, lastMessage: "Great tournament!", lastMessageTime: "2025-01-14T14:20:00", unreadCount: 0 },
-  { userId: 5, name: "Alex Brown", username: "alex_b", profileImage: null, isOnline: true, lastMessage: "I'll be there at 5pm", lastMessageTime: "2025-01-15T08:00:00", unreadCount: 0 },
-];
-
-const sampleConversations: ConversationsMap = {
-  "1-11": {
-    userId: 1, userName: "John Smith", userUsername: "john_smith",
-    messages: [
-      { id: 1, senderId: 1, senderName: "John Smith", senderUsername: "john_smith", receiverId: 11, receiverName: "Admin", receiverUsername: "admin", content: "Hi! I wanted to ask about the upcoming tournament.", timestamp: "2025-01-15T10:00:00", isRead: true, messageType: "TEXT" },
-      { id: 2, senderId: 11, senderName: "Admin", senderUsername: "admin", receiverId: 1, receiverName: "John Smith", receiverUsername: "john_smith", content: "Hello John! Sure, what would you like to know?", timestamp: "2025-01-15T10:05:00", isRead: true, messageType: "TEXT" },
-      { id: 3, senderId: 1, senderName: "John Smith", senderUsername: "john_smith", receiverId: 11, receiverName: "Admin", receiverUsername: "admin", content: "When is the next match scheduled?", timestamp: "2025-01-15T10:10:00", isRead: true, messageType: "TEXT" },
-      { id: 4, senderId: 1, senderName: "John Smith", senderUsername: "john_smith", receiverId: 11, receiverName: "Admin", receiverUsername: "admin", content: "Hey, when is the next match?", timestamp: "2025-01-15T10:30:00", isRead: false, messageType: "TEXT" },
-    ]
-  },
-  "2-11": {
-    userId: 2, userName: "Sarah Johnson", userUsername: "sarah_j",
-    messages: [
-      { id: 5, senderId: 11, senderName: "Admin", senderUsername: "admin", receiverId: 2, receiverName: "Sarah Johnson", receiverUsername: "sarah_j", content: "Your match results have been updated.", timestamp: "2025-01-15T09:10:00", isRead: true, messageType: "TEXT" },
-      { id: 6, senderId: 2, senderName: "Sarah Johnson", senderUsername: "sarah_j", receiverId: 11, receiverName: "Admin", receiverUsername: "admin", content: "Thanks for the update!", timestamp: "2025-01-15T09:15:00", isRead: true, messageType: "TEXT" },
-    ]
-  },
-  "3-11": {
-    userId: 3, userName: "Mike Wilson", userUsername: "mike_w",
-    messages: [
-      { id: 7, senderId: 3, senderName: "Mike Wilson", senderUsername: "mike_w", receiverId: 11, receiverName: "Admin", receiverUsername: "admin", content: "Can you check my score? I think there was an error.", timestamp: "2025-01-14T16:45:00", isRead: false, messageType: "TEXT" },
-    ]
-  },
-};
+const BASE_URL = "http://34.131.53.32:8080/api/chat";
+const WS_URL = "ws://34.131.53.32:8080/ws";
+const ADMIN_USER_ID = 3; // Administrator user ID
 
 export default function Chat() {
-  const [conversations, setConversations] = useState<ConversationsMap>(sampleConversations);
-  const [allUsers, setAllUsers] = useState<ChatUser[]>(sampleUsers);
-  const [selectedConversation, setSelectedConversation] = useState<string | null>("1-11");
+  const [conversations, setConversations] = useState<ConversationsMap>({});
+  const [allUsers, setAllUsers] = useState<ChatUser[]>([]);
+  const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [isConnected, setIsConnected] = useState(false);
-  const [onlineUsers, setOnlineUsers] = useState<Set<number>>(new Set([1, 2, 5]));
+  const [onlineUsers, setOnlineUsers] = useState<Set<number>>(new Set());
   const [messageCount, setMessageCount] = useState(0); // CRITICAL: Counter to force re-renders
   const stompClient = useRef<Client | null>(null);
   const messageHandlerRef = useRef<(message: ChatMessage) => void>(() => {}); // REF for message handler
@@ -291,28 +267,33 @@ export default function Chat() {
 
   const loadAllUsers = async () => {
     try {
-      const response = await fetch(`${BASE_URL}/users/${ADMIN_USER_ID}`);
-      if (response.ok) {
-        const users: ChatUser[] = await response.json();
-        if (users && users.length > 0) {
-          setAllUsers(users);
-          
-          // Set initial online users
-          const online = new Set(users.filter(u => u.isOnline).map(u => u.userId));
-          setOnlineUsers(online);
-
-          // Load conversations for users with existing chats
-          users.forEach(user => {
-            if (user.lastMessage) {
-              loadConversation(user.userId, user.name, user.username);
-            }
-          });
-        }
+      setLoading(true);
+      const users = await api.get<ApiUser[]>('/api/users');
+      if (users && users.length > 0) {
+        // Filter out admin user and map to ChatUser format
+        const chatUsers: ChatUser[] = users
+          .filter(u => u.id !== ADMIN_USER_ID)
+          .map(u => ({
+            userId: u.id,
+            name: u.name,
+            username: u.username,
+            profileImage: u.profileImage,
+            isOnline: false,
+            lastMessage: null,
+            lastMessageTime: null,
+            unreadCount: 0,
+          }));
+        setAllUsers(chatUsers);
       }
-      // If API fails or returns empty, keep sample data
     } catch (error) {
-      console.error('Failed to load users, using sample data:', error);
-      // Keep sample data - already initialized
+      console.error('Failed to load users:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load users",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -421,8 +402,18 @@ export default function Chat() {
     }
   }, [conversations, messageCount, selectedConv]);
 
+  if (loading) {
+    return (
+      <DashboardLayout title="CHAT" subtitle="Admin chat with users">
+        <div className="flex items-center justify-center h-64">
+          <p className="text-muted-foreground">Loading users...</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   return (
-    <DashboardLayout title="CHAT MONITORING" subtitle="Monitor all chat activity in the application">
+    <DashboardLayout title="CHAT" subtitle="Admin chat with users">
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -619,12 +610,12 @@ export default function Chat() {
                   </Avatar>
                   <div>
                     <CardTitle>{selectedConv.userName}</CardTitle>
-                    <CardDescription className="flex items-center gap-2">
+                    <div className="text-sm text-muted-foreground flex items-center gap-2">
                       <span>{selectedConv.userUsername}</span>
                       {onlineUsers.has(selectedConv.userId) && (
                         <Badge variant="outline">Online</Badge>
                       )}
-                    </CardDescription>
+                    </div>
                   </div>
                 </div>
                 <Button variant="outline" onClick={() => setSelectedConversation(null)}>

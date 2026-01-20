@@ -24,106 +24,54 @@ interface PlayerData {
 export default function PlayerLeaderboard() {
   const [players, setPlayers] = useState<PlayerData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedSport, setSelectedSport] = useState(1); // Default to Tennis
 
   useEffect(() => {
-    fetchPlayers();
-  }, []);
+    fetchLeaderboard();
+  }, [selectedSport]);
 
-  const fetchPlayers = async () => {
+  const fetchLeaderboard = async () => {
     try {
       setLoading(true);
       
-      // Fetch users using api service
-      const users = await api.get<any[]>("/api/users");
+      // Use the leaderboard endpoint directly - much more efficient
+      const leaderboardData = await api.get<any[]>(`/api/stats/player/leaderboard/${selectedSport}`);
       
-      // Helper to get sport ID (default to Tennis=1 for stats)
-      const getSportId = (sport: string) => {
-        const sportMap: Record<string, number> = { 'Tennis': 1, 'Badminton': 2, 'Football': 3, 'Pickleball': 4 };
-        return sportMap[sport] || 1;
-      };
-
-      // Process each user with their stats from the stats API
-      const playersWithStats = await Promise.all(
-        users.map(async (user: any) => {
+      // Fetch badges for top players
+      const playersWithBadges = await Promise.all(
+        (leaderboardData || []).map(async (player: any) => {
+          let playerBadges: any[] = [];
           try {
-            const sportId = getSportId(user.preferredSport || 'Tennis');
-            
-            // Fetch actual stats from the calculate endpoint
-            let stats: any = null;
-            try {
-              stats = await api.get(`/api/stats/player/${user.id}/sport/${sportId}/calculate`);
-            } catch (e) {
-              // Try alternate endpoint
-              try {
-                stats = await api.get(`/api/stats/player/${user.id}/sport/${sportId}`);
-              } catch (e2) {
-                console.warn(`No stats for player ${user.id}`);
-              }
-            }
-            
-            const matchesPlayed = stats?.matchesPlayed || 0;
-            const matchesWon = stats?.matchesWon || 0;
-            const matchesLost = stats?.matchesLost || 0;
-            const winRate = matchesPlayed > 0 ? Math.round((matchesWon / matchesPlayed) * 100) : 0;
-            const totalPoints = stats?.totalPoints || (matchesWon * 3);
-
-            // Fetch player badges using api service
-            let playerBadges: any[] = [];
-            try {
-              console.log(`Fetching badges for player ${user.id}...`);
-              const badgeData = await api.get<any[]>(`/api/v1/badges/player/${user.id}`);
-              // Map the PlayerBadgeDTO to simple badge objects
-              playerBadges = (badgeData || []).map((pb: any) => ({
-                id: pb.badge?.id || pb.id,
-                name: pb.badge?.name || pb.name,
-                tier: pb.badge?.tier || pb.tier,
-                pointsReward: pb.badge?.pointsReward || pb.pointsReward,
-                earnedAt: pb.earnedAt
-              }));
-              console.log(`Player ${user.id} badges:`, playerBadges);
-            } catch (err) {
-              console.error(`Error fetching badges for player ${user.id}:`, err);
-            }
-
-            return {
-              id: user.id,
-              name: user.name,
-              username: user.username || user.name,
-              state: user.state || "Unknown",
-              preferredSport: user.preferredSport || "None",
-              totalPoints,
-              matchesPlayed,
-              matchesWon,
-              matchesLost,
-              winRate,
-              badges: playerBadges,
-            };
-          } catch (error) {
-            console.error(`Error processing user ${user.id}:`, error);
-            return {
-              id: user.id,
-              name: user.name,
-              username: user.username || user.name,
-              state: user.state || "Unknown",
-              preferredSport: user.preferredSport || "None",
-              totalPoints: 0,
-              matchesPlayed: 0,
-              matchesWon: 0,
-              matchesLost: 0,
-              winRate: 0,
-              badges: [],
-            };
+            const badgeData = await api.get<any[]>(`/api/v1/badges/player/${player.playerId}`);
+            playerBadges = (badgeData || []).map((pb: any) => ({
+              id: pb.badge?.id || pb.id,
+              name: pb.badge?.name || pb.name,
+              tier: pb.badge?.tier || pb.tier,
+            }));
+          } catch (err) {
+            // No badges for this player
           }
+
+          return {
+            id: player.playerId,
+            name: player.playerName,
+            username: player.playerUsername,
+            state: "Unknown",
+            preferredSport: player.sportName || "Unknown",
+            totalPoints: player.totalPoints || 0,
+            matchesPlayed: player.matchesPlayed || 0,
+            matchesWon: player.matchesWon || 0,
+            matchesLost: player.matchesLost || 0,
+            winRate: player.winRate || 0,
+            badges: playerBadges,
+          };
         })
       );
 
-      // Sort by total points
-      playersWithStats.sort((a, b) => b.totalPoints - a.totalPoints);
-
-      setPlayers(playersWithStats);
-      setLoading(false);
+      setPlayers(playersWithBadges);
     } catch (error) {
-      console.error("Error fetching players:", error);
+      console.error("Error fetching leaderboard:", error);
+    } finally {
       setLoading(false);
     }
   };

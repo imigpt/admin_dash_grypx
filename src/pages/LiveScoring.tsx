@@ -494,8 +494,8 @@ export default function LiveScoring() {
       )}
 
       {/* Match Header */}
-      <div className="mb-8 rounded-2xl border border-border bg-card p-8">
-        <div className="mb-4 flex items-center justify-center gap-3">
+      <div className="mb-6 md:mb-8 rounded-2xl border border-border bg-card p-4 md:p-8">
+        <div className="mb-4 flex flex-wrap items-center justify-center gap-2 md:gap-3">
           <Badge variant="live" className="text-sm px-4 py-1">
             <span className="mr-2 inline-flex h-2 w-2 animate-pulse rounded-full bg-current" />
             LIVE
@@ -514,13 +514,13 @@ export default function LiveScoring() {
           )}
         </div>
 
-        <div className="flex items-center justify-center gap-8 md:gap-16">
+        <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-8 lg:gap-16">
           {/* Home Team */}
           <div className="flex flex-col items-center">
-            <div className="mb-3 flex h-20 w-20 items-center justify-center rounded-2xl bg-secondary text-3xl font-bold">
+            <div className="mb-3 flex h-16 w-16 md:h-20 md:w-20 items-center justify-center rounded-2xl bg-secondary text-2xl md:text-3xl font-bold">
               {selectedMatch?.teamAName.charAt(0) || 'A'}
             </div>
-            <h3 className="font-display text-xl tracking-wide text-foreground">
+            <h3 className="font-display text-base md:text-xl tracking-wide text-foreground text-center">
               {selectedMatch?.teamAName.toUpperCase() || 'TEAM A'}
             </h3>
             <p className="text-sm text-muted-foreground">Home</p>
@@ -529,13 +529,13 @@ export default function LiveScoring() {
           {/* Score */}
           <div className="flex flex-col items-center gap-2">
             {isRacketSport && (
-              <div className="text-sm text-muted-foreground mb-2">
+              <div className="text-xs md:text-sm text-muted-foreground mb-2 text-center">
                 Sets: {team1SetsWon} - {team2SetsWon} | Set {currentSet}
               </div>
             )}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 md:gap-4">
               <div className="text-center">
-                <span className={`font-display text-7xl tracking-wider transition-all ${
+                <span className={`font-display text-5xl md:text-7xl tracking-wider transition-all ${
                   events.length > 0 && events[events.length - 1].team === "home" && events[events.length - 1].type === "goal"
                     ? "animate-score-pop text-primary"
                     : "text-foreground"
@@ -543,12 +543,12 @@ export default function LiveScoring() {
                   {isRacketSport ? team1SetScore : homeScore}
                 </span>
                 {isRacketSport && (
-                  <div className="text-sm text-muted-foreground mt-1">Total: {homeScore}</div>
+                  <div className="text-xs md:text-sm text-muted-foreground mt-1">Total: {homeScore}</div>
                 )}
               </div>
-              <span className="font-display text-4xl text-muted-foreground">:</span>
+              <span className="font-display text-3xl md:text-4xl text-muted-foreground">:</span>
               <div className="text-center">
-                <span className={`font-display text-7xl tracking-wider transition-all ${
+                <span className={`font-display text-5xl md:text-7xl tracking-wider transition-all ${
                   events.length > 0 && events[events.length - 1].team === "away" && events[events.length - 1].type === "goal"
                     ? "animate-score-pop text-primary"
                     : "text-foreground"
@@ -556,7 +556,7 @@ export default function LiveScoring() {
                   {isRacketSport ? team2SetScore : awayScore}
                 </span>
                 {isRacketSport && (
-                  <div className="text-sm text-muted-foreground mt-1">Total: {awayScore}</div>
+                  <div className="text-xs md:text-sm text-muted-foreground mt-1">Total: {awayScore}</div>
                 )}
               </div>
             </div>
@@ -564,10 +564,10 @@ export default function LiveScoring() {
 
           {/* Away Team */}
           <div className="flex flex-col items-center">
-            <div className="mb-3 flex h-20 w-20 items-center justify-center rounded-2xl bg-secondary text-3xl font-bold">
+            <div className="mb-3 flex h-16 w-16 md:h-20 md:w-20 items-center justify-center rounded-2xl bg-secondary text-2xl md:text-3xl font-bold">
               {selectedMatch?.teamBName.charAt(0) || 'B'}
             </div>
-            <h3 className="font-display text-xl tracking-wide text-foreground">
+            <h3 className="font-display text-base md:text-xl tracking-wide text-foreground text-center">
               {selectedMatch?.teamBName.toUpperCase() || 'TEAM B'}
             </h3>
             <p className="text-sm text-muted-foreground">Away</p>
@@ -575,7 +575,7 @@ export default function LiveScoring() {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-4 md:gap-6 lg:grid-cols-3">
         {/* Scoring Controls */}
         <div className="lg:col-span-2">
           <div className="rounded-xl border border-border bg-card p-6">

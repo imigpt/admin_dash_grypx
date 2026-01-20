@@ -97,18 +97,18 @@ export default function Dashboard() {
       {/* Current Live Match */}
       {!liveLoading && liveMatches && liveMatches.length > 0 && (
         <div className="mb-6 rounded-2xl border-2 border-primary/50 bg-gradient-to-br from-primary/10 via-card to-card p-6 shadow-lg animate-fade-in">
-          <div className="mb-4 flex items-center justify-between">
+          <div className="mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
                 <span className="relative flex h-3 w-3">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-destructive opacity-75"></span>
                   <span className="relative inline-flex h-3 w-3 rounded-full bg-destructive"></span>
                 </span>
-                <h2 className="font-display text-xl tracking-wide text-foreground">
+                <h2 className="font-display text-lg md:text-xl tracking-wide text-foreground">
                   LIVE NOW
                 </h2>
               </div>
-              <Badge variant="live" className="text-xs px-3 py-1">
+              <Badge variant="live" className="text-xs px-2 md:px-3 py-1">
                 {liveMatches[0].sportType || liveMatches[0].sportName || 'Match'}
               </Badge>
             </div>
@@ -119,38 +119,38 @@ export default function Dashboard() {
               Go to Live Scoring →
             </a>
           </div>
-          <div className="flex items-center justify-between gap-8">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4 md:gap-8">
             {/* Team 1 */}
-            <div className="flex flex-1 items-center gap-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-secondary text-2xl font-bold">
+            <div className="flex flex-1 items-center gap-4 w-full md:w-auto">
+              <div className="flex h-12 w-12 md:h-16 md:w-16 items-center justify-center rounded-xl bg-secondary text-xl md:text-2xl font-bold shrink-0">
                 {(liveMatches[0].teamAName || liveMatches[0].team1Name || 'A').charAt(0)}
               </div>
-              <div className="flex-1">
-                <h3 className="font-display text-lg tracking-wide text-foreground">
+              <div className="flex-1 min-w-0">
+                <h3 className="font-display text-base md:text-lg tracking-wide text-foreground truncate">
                   {(liveMatches[0].teamAName || liveMatches[0].team1Name || 'Team A').toUpperCase()}
                 </h3>
                 <p className="text-sm text-muted-foreground">Home</p>
               </div>
             </div>
             {/* Score */}
-            <div className="flex items-center gap-4 px-6">
-              <span className="font-display text-5xl tracking-wider text-foreground animate-pulse">
+            <div className="flex items-center gap-3 md:gap-4 px-4 md:px-6 py-2">
+              <span className="font-display text-4xl md:text-5xl tracking-wider text-foreground animate-pulse">
                 {liveMatches[0].scoreA ?? liveMatches[0].scoreTeam1 ?? liveMatches[0].team1Score ?? 0}
               </span>
-              <span className="font-display text-3xl text-muted-foreground">:</span>
-              <span className="font-display text-5xl tracking-wider text-foreground animate-pulse">
+              <span className="font-display text-2xl md:text-3xl text-muted-foreground">:</span>
+              <span className="font-display text-4xl md:text-5xl tracking-wider text-foreground animate-pulse">
                 {liveMatches[0].scoreB ?? liveMatches[0].scoreTeam2 ?? liveMatches[0].team2Score ?? 0}
               </span>
             </div>
             {/* Team 2 */}
-            <div className="flex flex-1 items-center gap-4">
-              <div className="flex-1 text-right">
-                <h3 className="font-display text-lg tracking-wide text-foreground">
+            <div className="flex flex-1 items-center gap-4 w-full md:w-auto flex-row-reverse md:flex-row">
+              <div className="flex-1 text-left md:text-right min-w-0">
+                <h3 className="font-display text-base md:text-lg tracking-wide text-foreground truncate">
                   {(liveMatches[0].teamBName || liveMatches[0].team2Name || 'Team B').toUpperCase()}
                 </h3>
                 <p className="text-sm text-muted-foreground">Away</p>
               </div>
-              <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-secondary text-2xl font-bold">
+              <div className="flex h-12 w-12 md:h-16 md:w-16 items-center justify-center rounded-xl bg-secondary text-xl md:text-2xl font-bold shrink-0">
                 {(liveMatches[0].teamBName || liveMatches[0].team2Name || 'B').charAt(0)}
               </div>
             </div>
@@ -159,7 +159,7 @@ export default function Dashboard() {
       )}
 
       {/* Stats Grid */}
-      <div className="mb-8 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-6 md:mb-8 grid gap-4 md:gap-6 grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Live Matches"
           value={statsLoading ? "..." : String(liveMatchCount)}
@@ -193,7 +193,7 @@ export default function Dashboard() {
         />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-4 md:gap-6 lg:grid-cols-3">
         {/* Chart Section */}
         <div className="lg:col-span-2">
           <div className="rounded-xl border border-border bg-card p-6">
