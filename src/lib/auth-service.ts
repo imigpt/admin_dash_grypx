@@ -74,12 +74,16 @@ export const authService = {
 
   // Store auth data
   storeAuthData(data: AuthResponse) {
+    // Backend returns userId directly (not nested in user object)
     if (data.userId) {
       localStorage.setItem('userId', data.userId.toString());
     }
-    if (data.user?.id) {
+    
+    // Fallback to nested user object if present
+    if (!data.userId && data.user?.id) {
       localStorage.setItem('userId', data.user.id.toString());
     }
+    
     if (data.role) {
       localStorage.setItem('userRole', data.role);
     }
@@ -89,8 +93,12 @@ export const authService = {
     if (data.username) {
       localStorage.setItem('username', data.username);
     }
-    if (data.token || data.jwtToken) {
-      localStorage.setItem('authToken', data.token || data.jwtToken || '');
+    
+    // Backend returns 'token' (not 'jwtToken')
+    if (data.token) {
+      localStorage.setItem('authToken', data.token);
+    } else if (data.jwtToken) {
+      localStorage.setItem('authToken', data.jwtToken);
     }
   }
 };
